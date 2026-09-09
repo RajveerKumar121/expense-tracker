@@ -1,3 +1,6 @@
+import os
+import dj_database_url
+
 """
 Django settings for backend project.
 
@@ -25,7 +28,7 @@ SECRET_KEY = 'django-insecure-d-5unk7(jbe@j$hxf#d!=f$tn(u6l^sxphd4sxw%zrinq-d#^b
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['localhost', '127.0.0.1', '.onrender.com']
 
 
 # Application definition
@@ -77,16 +80,27 @@ WSGI_APPLICATION = 'backend.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'expensedb',       
-        'USER': 'postgres',          
-        'PASSWORD': '221507', 
-        'HOST': 'localhost',
-        'PORT': '5432',
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+    DATABASES = {
+        'default': dj_database_url.config(
+            default=DATABASE_URL,
+            conn_max_age=600,
+            conn_health_checks=True,
+        )
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': 'expensedb',
+            'USER': 'postgres',
+            'PASSWORD': 'YOUR_LOCAL_PASSWORD',
+            'HOST': 'localhost',
+            'PORT': '5432',
+        }
+    }
 
 CORS_ALLOW_ALL_ORIGINS = True
 
