@@ -1,19 +1,15 @@
-// --- Initial State & Categories ---
+// Django REST API Base URL
+const API_BASE_URL = 'http://127.0.0.1:8000/api/transactions/';
+
 const CATEGORIES = {
     expense: ['Food & Dining', 'Rent & Utilities', 'Entertainment', 'Transportation', 'Shopping'],
     income: ['Salary', 'Freelance', 'Investments', 'Other']
 };
 
-let transactions = [
-    { id: '1', title: 'Monthly Salary', amount: 4500, type: 'income', category: 'Salary', date: '2026-08-01' },
-    { id: '2', title: 'Apartment Rent', amount: 1200, type: 'expense', category: 'Rent & Utilities', date: '2026-08-02' },
-    { id: '3', title: 'Grocery Run', amount: 150, type: 'expense', category: 'Food & Dining', date: '2026-08-05' },
-    { id: '4', title: 'Freelance Design', amount: 800, type: 'income', category: 'Freelance', date: '2026-08-10' }
-];
-
+let transactions = [];
 let chartInstance = null;
 
-// --- DOM References ---
+// DOM Elements
 const txForm = document.getElementById('txForm');
 const txType = document.getElementById('txType');
 const txCategory = document.getElementById('txCategory');
@@ -33,7 +29,59 @@ const filterCategory = document.getElementById('filterCategory');
 // Set default date to today
 txDate.value = new Date().toISOString().split('T')[0];
 
-// --- Dropdown Population ---
+// --- Backend API Calls ---
+async function fetchTransactions() {
+    try {
+        const res = await fetch(API_BASE_URL);
+        if (!res.ok) throw new Error('Failed to fetch transactions');
+        transactions = await res.json();
+        updateDashboard();
+    } catch (err) {
+        console.error('Error fetching data:', err);
+    }
+}
+
+async function addTransaction(txData) {
+    try {
+        const res = await fetch(API_BASE_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(txData)
+        });
+
+        if (!res.ok) {
+            const errorData = await res.json();
+            console.error('Validation error:', errorData);
+            alert('Error adding transaction. Please check your inputs.');
+            return;
+        }
+
+        const savedTx = await res.json();
+        transactions.unshift(savedTx);
+        updateDashboard();
+    } catch (err) {
+        console.error('Error:', err);
+        alert('Server error: Make sure your Django backend is running.');
+    }
+}
+
+async function deleteTransaction(id) {
+    try {
+        const res = await fetch(`${API_BASE_URL}${id}/`, {
+            method: 'DELETE'
+        });
+
+        if (!res.ok) throw new Error('Failed to delete transaction');
+
+        transactions = transactions.filter(t => t.id !== id);
+        updateDashboard();
+    } catch (err) {
+        console.error('Error:', err);
+        alert('Failed to delete transaction.');
+    }
+}
+
+// --- UI & Rendering ---
 function updateCategoryDropdown() {
     const type = txType.value;
     txCategory.innerHTML = '';
@@ -56,9 +104,7 @@ function populateFilterCategories() {
     });
 }
 
-// --- Dashboard Render Logic ---
 function updateDashboard() {
-    // 1. Calculate Totals
     const income = transactions
         .filter(t => t.type === 'income')
         .reduce((sum, t) => sum + Number(t.amount), 0);
@@ -73,7 +119,6 @@ function updateDashboard() {
     totalIncome.textContent = `+$${income.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
     totalExpense.textContent = `-$${expense.toLocaleString('en-US', { minimumFractionDigits: 2 })}`;
 
-    // 2. Render Table & Chart
     renderTable();
     renderChart();
 }
@@ -110,11 +155,11 @@ function renderTable() {
       <td style="font-weight: 500;">${escapeHtml(t.title)}</td>
       <td><span class="badge">${escapeHtml(t.category)}</span></td>
       <td style="color: var(--text-muted);">${t.date}</td>
-      <td class="text-right" style="font-weight: 600; color: ${isIncome ? 'var(--income-color)' : 'var(--text-main)'};">
+      <td style="text-align: right; font-weight: 600; color: ${isIncome ? 'var(--income-color)' : 'var(--text-main)'};">
         ${isIncome ? '+' : '-'}$${Number(t.amount).toFixed(2)}
       </td>
-      <td class="text-center">
-        <button class="btn-delete" onclick="deleteTransaction('${t.id}')" title="Delete">✕</button>
+      <td style="text-align: center;">
+        <button class="btn-delete" onclick="deleteTransaction(${t.id})" title="Delete">✕</button>
       </td>
     `;
         txTableBody.appendChild(tr);
@@ -160,16 +205,10 @@ function renderChart() {
     });
 }
 
-// --- Actions & Helpers ---
-function deleteTransaction(id) {
-    transactions = transactions.filter(t => t.id !== id);
-    updateDashboard();
-}
-
 function escapeHtml(string) {
-    return String(string).replace(/[&<>"']/g, function (s) {
-        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[s];
-    });
+    return String(string).replace(/[&<>"']/g, s => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[s]));
 }
 
 // --- Event Listeners ---
@@ -178,7 +217,6 @@ txType.addEventListener('change', updateCategoryDropdown);
 txForm.addEventListener('submit', (e) => {
     e.preventDefault();
     const newTx = {
-        id: Date.now().toString(),
         title: txTitle.value.trim(),
         amount: parseFloat(txAmount.value),
         type: txType.value,
@@ -186,18 +224,16 @@ txForm.addEventListener('submit', (e) => {
         date: txDate.value
     };
 
-    transactions.unshift(newTx);
+    addTransaction(newTx);
     txTitle.value = '';
     txAmount.value = '';
-
-    updateDashboard();
 });
 
 searchInput.addEventListener('input', renderTable);
 filterType.addEventListener('change', renderTable);
 filterCategory.addEventListener('change', renderTable);
 
-// --- Initialization ---
+// --- App Initialization ---
 updateCategoryDropdown();
 populateFilterCategories();
-updateDashboard();
+fetchTransactions();
