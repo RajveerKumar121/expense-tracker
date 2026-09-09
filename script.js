@@ -1,5 +1,5 @@
 // Django REST API Base URL
-const API_BASE_URL = 'http://127.0.0.1:8000/api/transactions/';
+const API_BASE_URL = 'https://YOUR-RENDER-SERVICE-NAME.onrender.com/api/transactions/';
 
 const CATEGORIES = {
     expense: ['Food & Dining', 'Rent & Utilities', 'Entertainment', 'Transportation', 'Shopping'],
